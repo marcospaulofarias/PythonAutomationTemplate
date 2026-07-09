@@ -9,11 +9,11 @@ class UiAutomationClass:
             "Window": auto.WindowControl
         }
     
-    def find_element(self, element_type: str, params: dict) -> auto.Control | None:
+    def find_element(self, element_type: str, params: dict, screen: auto.WindowControl = None) -> auto.Control | None:
         """Captura um elemento. params: {automationid, classname, name, depth, type}"""
         if not self._verify_dict_params(dict_params=params):
             raise ValueError("É necessário passar no mínimo parâmetro")
-        return self._try_element(element_type=element_type, params=params)
+        return self._try_element(element_type=element_type, params=params, screen=screen)
 
     def _verify_dict_params(self, dict_params) -> bool:
         """Verifica se no mínimo 1 parâmetro foi passado"""
@@ -21,14 +21,20 @@ class UiAutomationClass:
             return False
         return True
     
-    def _try_element(self, element_type: str, params: dict, max_search_seconds: float = 20, search_interval: float = 1.0) -> auto.WindowControl | None:
+    def _try_element(self, element_type: str, params: dict, max_search_seconds: float = 20, search_interval: float = 1.0, screen: auto.WindowControl = None) -> auto.WindowControl | None:
         """Busca a janela, tentando por até max_search_seconds segundos, a cada search_interval segundos"""
         if not element_type or element_type not in self.controls:
             raise ValueError("Obrigatório informar o tipo do elemento")
-        element = self.controls.get(element_type)(ClassName=params.get("classname"),
-                                            Name=params.get("name"),
-                                            AutomationId=params.get("automationid"),
-                                            Depth=params.get("depth"))
+        if not screen:
+            element = self.controls.get(element_type)(ClassName=params.get("classname"),
+                                                Name=params.get("name"),
+                                                AutomationId=params.get("automationid"),
+                                                Depth=params.get("depth"))
+        else:
+            element = screen.self.controls.get(element_type)(ClassName=params.get("classname"),
+                                                Name=params.get("name"),
+                                                AutomationId=params.get("automationid"),
+                                                Depth=params.get("depth"))
         try:
             if element.Exists(maxSearchSeconds=max_search_seconds, searchIntervalSeconds=search_interval):
                 return element
