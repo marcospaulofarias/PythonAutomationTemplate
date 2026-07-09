@@ -8,12 +8,29 @@ class UiAutomationClass:
             "Edit": auto.EditControl,
             "Window": auto.WindowControl
         }
-    
+
+        self.interactions = {
+            "EditControl": lambda element, value=None: element.SendKeys(value),
+            "ButtonControl": lambda element, value=None: element.GetInvokePattern().Invoke(),
+        }
+
     def find_element(self, element_type: str, params: dict, screen: auto.WindowControl = None) -> auto.Control | None:
         """Captura um elemento. params: {automationid, classname, name, depth, type}"""
         if not self._verify_dict_params(dict_params=params):
             raise ValueError("É necessário passar no mínimo parâmetro")
         return self._try_element(element_type=element_type, params=params, screen=screen)
+
+    def interact_element(self, element: auto.Control, value: str = None) -> bool:
+        method_element = self.interactions.get(element.ControlTypeName)
+        if not method_element:
+            logger.warning(f"Nenhuma interação definida para o tipo: {element.ControlTypeName}")
+            return False
+        try:
+            method_element(element, value)
+            return True
+        except Exception as error_x:
+            logger.warning(f"Erro ao interagir com o elemento: {error_x}")
+            return False
 
     def _verify_dict_params(self, dict_params) -> bool:
         """Verifica se no mínimo 1 parâmetro foi passado"""
@@ -40,5 +57,5 @@ class UiAutomationClass:
                 return element
         except Exception as error_x:
             logger.warning(f"Erro ao buscar a janela: {error_x}")
-        logger.error(f"Janela não encontrada após {max_search_seconds}s")
+        logger.error(f"{element_type} não encontrada após {max_search_seconds}s")
         return None
