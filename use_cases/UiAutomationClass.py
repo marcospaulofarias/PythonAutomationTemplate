@@ -1,8 +1,11 @@
+import time
 from loguru import logger
 import uiautomation as auto
+from use_cases.PrintAutomation import PrintAutomation
 
 class UiAutomationClass:
     def __init__(self) -> None:
+        self.printautomation = PrintAutomation()
         self.controls = {
             "Button": auto.ButtonControl,
             "Edit": auto.EditControl,
@@ -20,17 +23,30 @@ class UiAutomationClass:
             raise ValueError("É necessário passar no mínimo parâmetro")
         return self._try_element(element_type=element_type, params=params, screen=screen)
 
-    def interact_element(self, element: auto.Control, value: str = None) -> bool:
+    def interact_element(self, element: auto.Control, value: str = None,
+                         max_interact_seconds: float = 20, interval: float = 1.0) -> bool:
+        """Tenta interagir com o elemento por max_interact_segundos, caso não consiga, erro"""
         method_element = self.interactions.get(element.ControlTypeName)
         if not method_element:
             logger.warning(f"Nenhuma interação definida para o tipo: {element.ControlTypeName}")
             return False
-        try:
-            method_element(element, value)
-            return True
-        except Exception as error_x:
-            logger.warning(f"Erro ao interagir com o elemento: {error_x}")
-            return False
+
+        deadline = time.monotonic() + max_interact_seconds
+        last_error = None
+        while time.monotonic() < deadline:
+            try:
+                if method_element(element, value) is not False:
+                    return True
+                last_error = "a interação retornou False"
+            except Exception as error_x:
+                last_error = error_x
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(interval, remaining))
+        logger.error(f"Não foi possível interagir com o elemento após {max_interact_seconds}s: {last_error}")
+        self.printautomation.print_error(element_to_print=element)
+        return False
 
     def _verify_dict_params(self, dict_params) -> bool:
         """Verifica se no mínimo 1 parâmetro foi passado"""
@@ -58,4 +74,5 @@ class UiAutomationClass:
         except Exception as error_x:
             logger.warning(f"Erro ao buscar a janela: {error_x}")
         logger.error(f"{element_type} não encontrada após {max_search_seconds}s")
+        self.printautomation.print_error(element_to_print=screen)
         return None
