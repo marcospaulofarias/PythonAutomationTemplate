@@ -1,0 +1,10 @@
+colorama==0.4.6
+comtypes==1.4.16
+iniconfig==2.3.0
+loguru==0.7.3
+packaging==26.2
+pluggy==1.6.0
+Pygments==2.20.0
+python-dotenv==1.2.2
+uiautomation==2.0.29
+win32_setctime==1.2.0
