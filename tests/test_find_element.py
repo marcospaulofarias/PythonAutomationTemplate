@@ -60,6 +60,21 @@ def test_lanca_lookuperror_quando_exists_da_erro():
     assert ui.printautomation.calls == 1
 
 
+def test_repassa_screen_como_search_from_control():
+    """Buscar dentro de uma janela já encontrada: o screen precisa chegar ao
+    controle como searchFromControl (guarda contra a regressão do 'screen.self')."""
+    ui = make_ui({"Button": control_class(True)})
+    janela = object()  # sentinela representando a WindowControl já encontrada
+    element = ui.find_element(element_type="Button", params={"name": "Um"}, screen=janela)
+    assert element.kwargs["searchFromControl"] is janela
+
+
+def test_sem_screen_search_from_control_e_none():
+    ui = make_ui({"Button": control_class(True)})
+    element = ui.find_element(element_type="Button", params={"name": "Um"})
+    assert element.kwargs["searchFromControl"] is None
+
+
 def test_lanca_valueerror_para_tipo_desconhecido():
     ui = make_ui({"Button": control_class(True)})
     with pytest.raises(ValueError):

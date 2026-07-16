@@ -55,19 +55,16 @@ class UiAutomationClass:
         return True
     
     def _try_element(self, element_type: str, params: dict, max_search_seconds: float = 20, search_interval: float = 1.0, screen: auto.WindowControl = None) -> auto.Control:
-        """Busca a janela, tentando por até max_search_seconds segundos, a cada search_interval segundos"""
+        """Busca a janela, tentando por até max_search_seconds segundos, a cada search_interval segundos
+        screen: Faz a busca a do elemento a partir da tela informada em screen"""
         if not element_type or element_type not in self.controls:
             raise ValueError("Obrigatório informar o tipo do elemento")
-        if not screen:
-            element = self.controls.get(element_type)(ClassName=params.get("classname"),
-                                                Name=params.get("name"),
-                                                AutomationId=params.get("automationid"),
-                                                Depth=params.get("depth"))
-        else:
-            element = screen.self.controls.get(element_type)(ClassName=params.get("classname"),
-                                                Name=params.get("name"),
-                                                AutomationId=params.get("automationid"),
-                                                Depth=params.get("depth"))
+        control_cls = self.controls.get(element_type)
+        element = control_cls(searchFromControl=screen,
+                              ClassName=params.get("classname"),
+                              Name=params.get("name"),
+                              AutomationId=params.get("automationid"),
+                              Depth=params.get("depth"))
         try:
             if element.Exists(maxSearchSeconds=max_search_seconds, searchIntervalSeconds=search_interval):
                 return element
