@@ -5,5 +5,5 @@ load_dotenv()
 class EnvManager:
     def __init__(self) -> None:
         self.paths = {
-            "workbooks": getenv("PATH_WORKBOOKS"),
+            "workbooks": getenv("PATH_WORKBOOKS")
         }
