@@ -3,7 +3,7 @@ from use_cases.SubprocessPrograms import SubprocessPrograms
 
 class Calculadora(UiAutomationClass):
     def __init__(self, name_of_program: str, name_of_process: str = None):
-        super().__init__()
+        super().__init__(process_id="0000001", process_type="create_report", process_machine="COOP_MACHINE_01")
         self.name_of_program = name_of_program
         self.name_of_process = name_of_process
         self.subprocessprograms = SubprocessPrograms()

@@ -4,8 +4,11 @@ import uiautomation as auto
 from use_cases.PrintAutomation import PrintAutomation
 
 class UiAutomationClass:
-    def __init__(self) -> None:
-        self.printautomation = PrintAutomation()
+    def __init__(self, process_id: str = "", process_type: str = "", process_machine: str = "") -> None:
+        self.printautomation = PrintAutomation(process_id=process_id,
+                                               process_type=process_type,
+                                               process_machine=process_machine)
+                                               
         self.controls = {
             "Button": auto.ButtonControl,
             "Edit": auto.EditControl,
