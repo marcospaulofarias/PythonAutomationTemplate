@@ -4,8 +4,11 @@ import uiautomation as auto
 from use_cases.PrintAutomation import PrintAutomation
 
 class UiAutomationClass:
-    def __init__(self) -> None:
-        self.printautomation = PrintAutomation()
+    def __init__(self, process_id: str = "", process_type: str = "", process_machine: str = "") -> None:
+        self.printautomation = PrintAutomation(process_id=process_id,
+                                               process_type=process_type,
+                                               process_machine=process_machine)
+                                               
         self.controls = {
             "Button": auto.ButtonControl,
             "Edit": auto.EditControl,
@@ -17,7 +20,7 @@ class UiAutomationClass:
             "ButtonControl": lambda element, value=None: element.GetInvokePattern().Invoke(),
         }
 
-    def find_element(self, element_type: str, params: dict, screen: auto.WindowControl = None) -> auto.Control | None:
+    def find_element(self, element_type: str, params: dict, screen: auto.WindowControl = None) -> auto.Control:
         """Captura um elemento. params: {automationid, classname, name, depth, type}"""
         if not self._verify_dict_params(dict_params=params):
             raise ValueError("É necessário passar no mínimo parâmetro")
@@ -54,25 +57,21 @@ class UiAutomationClass:
             return False
         return True
     
-    def _try_element(self, element_type: str, params: dict, max_search_seconds: float = 20, search_interval: float = 1.0, screen: auto.WindowControl = None) -> auto.WindowControl | None:
-        """Busca a janela, tentando por até max_search_seconds segundos, a cada search_interval segundos"""
+    def _try_element(self, element_type: str, params: dict, max_search_seconds: float = 20, search_interval: float = 1.0, screen: auto.WindowControl = None) -> auto.Control:
+        """Busca a janela, tentando por até max_search_seconds segundos, a cada search_interval segundos
+        screen: Faz a busca a do elemento a partir da tela informada em screen"""
         if not element_type or element_type not in self.controls:
             raise ValueError("Obrigatório informar o tipo do elemento")
-        if not screen:
-            element = self.controls.get(element_type)(ClassName=params.get("classname"),
-                                                Name=params.get("name"),
-                                                AutomationId=params.get("automationid"),
-                                                Depth=params.get("depth"))
-        else:
-            element = screen.self.controls.get(element_type)(ClassName=params.get("classname"),
-                                                Name=params.get("name"),
-                                                AutomationId=params.get("automationid"),
-                                                Depth=params.get("depth"))
+        control_cls = self.controls.get(element_type)
+        element = control_cls(searchFromControl=screen,
+                              ClassName=params.get("classname"),
+                              Name=params.get("name"),
+                              AutomationId=params.get("automationid"),
+                              Depth=params.get("depth"))
         try:
             if element.Exists(maxSearchSeconds=max_search_seconds, searchIntervalSeconds=search_interval):
                 return element
         except Exception as error_x:
             logger.warning(f"Erro ao buscar a janela: {error_x}")
-        logger.error(f"{element_type} não encontrada após {max_search_seconds}s")
         self.printautomation.print_error(element_to_print=screen)
-        return None
+        raise LookupError(f"{element_type} não encontrada após {max_search_seconds}s: {params}")
