@@ -58,7 +58,15 @@ class Browser(UiAutomationClass):
                 self.printautomation.print_error()
                 logger.critical(f'Erro ao fechar o navegador pelo subprocesso\nError: {error_x}')
 
-    def keyboard(self, element, word: str, key_down: bool, mask: bool, verify: bool = True, clean: bool = True, rem: str = None) -> None:
+    def keyboard(self, element, word: str, key_down: bool, just_numbers: bool, verify: bool = True, clean: bool = True, word_to_remove: str = None) -> None:
+        """Função para interagir com campos de texto editáveis.
+        element: elemento web campo de texto editável para interagir.
+        word: palavra ou frase para enviar ao elemento.
+        key_down: método para "teclar a direita", alguns campos voltam o cursor como se "teclassem a esquerda".
+        just_number: método para enviar apenas números ao elemento.
+        verify: método para verificar se o elemento recebeu o valor correto.
+        clean: método para limpar o elemento antes de enviar o valor a ele.
+        word_to_remove: palavra para remover de word ao enviar para o elemento"""
         if clean and element:
             element.clear()
         for caract in word:
@@ -68,65 +76,84 @@ class Browser(UiAutomationClass):
                 keyDown('right')
                 element.click()
         if verify:
-            if mask:
+            if just_numbers:
                 if sub(r"\D", "", element.get_attribute('value')) != word:
                     self.keyboard(element, word, key_down, verify)
-            elif not mask and rem is None:
+            elif not just_numbers and word_to_remove is None:
                 if element.get_attribute('value') != word:
                     self.keyboard(element, word, key_down, verify)
-            elif rem is not None:
-                if element.get_attribute('value').replace(rem, "") != word.replace(rem, ""):
+            elif word_to_remove is not None:
+                if element.get_attribute('value').replace(word_to_remove, "") != word.replace(word_to_remove, ""):
                     self.keyboard(element, word, key_down, verify)
             return
 
-    def element_response(self, metodo: By, identificador_elemento: str, message_success: str, message_error: str, repeticoes: int=100000, elemento: any = None, click: bool = False, update: bool = False):
-        if elemento is None:
-            for _ in range(repeticoes):
+    def element_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=100000, element: any = None, click: bool = False, update: bool = False):
+        """Função para tentar n vezes encontrar um elemento web e retorna-lo.
+        method: método usado para identificar o elemento [By.NAME, By.CLASSNAME, By.XPATH, etc...].
+        element_id: identificador do elemento, exemplo: password, table, name_id_1, etc...
+        message_success: mensagem de sucesso confirmando a captura do elemento.
+        message_error: mensagem de erro mostrando que o elemento não foi capturado e o motivo.
+        repetitons: número de tentativas para capturar o elemento.
+        element: elemento que origina a captura de outro, exemplo element.find_element(...). -> janela_login.find_element(...).
+        click: método para clicar no elemento assim que capturado.
+        update: método para atualizar a página a cada 20 tentativas, as vezes um elemento quebrado se conserta apenas atualizando a página.
+        """
+        if element is None:
+            for _ in range(repetitions):
                 if update and (_ + 1) % 20 == 0:
                     self.driver.refresh()
                     logger.info('Atualizou a página')
-                logger.info(f'TENTATIVA {_ + 1} de {repeticoes}')
+                logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
                     if click:
-                        self.driver.find_element(metodo, identificador_elemento).click()
+                        self.driver.find_element(method, element_id).click()
                         logger.info(message_success)
                         return True
                     else:
                         logger.info(message_success)
-                        return self.driver.find_element(metodo, identificador_elemento)
+                        return self.driver.find_element(method, element_id)
                 except Exception as error_x:
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
         else:
-            for _ in range(repeticoes):
-                logger.info(f'TENTATIVA {_ + 1} de {repeticoes}')
+            for _ in range(repetitions):
+                logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    elemento.find_element(metodo, identificador_elemento)
+                    element.find_element(method, element_id)
                     logger.info(message_success)
-                    return elemento.find_element(metodo, identificador_elemento)
+                    return element.find_element(method, element_id)
                 except Exception as error_x:
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
         return False
     
-    def elements_response(self, metodo: By, identificador_elemento: str, message_success: str, message_error: str, repeticoes: int=100000, elemento: any = None):
-        if elemento is None:
-            for _ in range(repeticoes):
-                logger.info(f'TENTATIVA {_ + 1} de {repeticoes}')
+    def elements_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=100000, element: any = None):
+        """Função para tentar n vezes encontrar um elemento ou mais elementos web e retorna-los em forma de lista.
+        method: método usado para identificar o(s) elemento(s) [By.NAME, By.CLASSNAME, By.XPATH, etc...].
+        element_id: identificador do(s) elemento(s), exemplo: password, table, name_id_1, etc...
+        message_success: mensagem de sucesso confirmando a captura do elemento.
+        message_error: mensagem de erro mostrando que o elemento não foi capturado e o motivo.
+        repetitons: número de tentativas para capturar o elemento.
+        element: elemento que origina a captura de outro, exemplo element.find_element(...). -> janela_login.find_element(...).
+        update: método para atualizar a página a cada 20 tentativas, as vezes um elemento quebrado se conserta apenas atualizando a página.
+        """
+        if element is None:
+            for _ in range(repetitions):
+                logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    self.driver.find_elements(metodo, identificador_elemento)
+                    self.driver.find_elements(method, element_id)
                     logger.info(message_success)
-                    return self.driver.find_elements(metodo, identificador_elemento)
+                    return self.driver.find_elements(method, element_id)
                 except Exception as error_x:
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
         else:
-            for _ in range(repeticoes):
-                logger.info(f'TENTATIVA {_ + 1} de {repeticoes}')
+            for _ in range(repetitions):
+                logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    elemento.find_elements(metodo, identificador_elemento)
+                    element.find_elements(method, element_id)
                     logger.info(message_success)
-                    return elemento.find_elements(metodo, identificador_elemento)
+                    return element.find_elements(method, element_id)
                 except Exception as error_x:
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
