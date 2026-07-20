@@ -12,11 +12,24 @@ from loguru import logger
 class Browser(UiAutomationClass):
     """Esta classe serve para trabalha com automação web usando tanto UiAutomation como selenium.
     Usando ela é possível superar algumas limitações do selenium e vice e versa"""
+    BY_METHODS = {
+        "name": By.NAME,
+        "classname": By.CLASS_NAME,
+        "class_name": By.CLASS_NAME,
+        "xpath": By.XPATH,
+        "id": By.ID,
+        "css_selector": By.CSS_SELECTOR,
+        "tag_name": By.TAG_NAME,
+        "link_text": By.LINK_TEXT,
+        "partial_link_text": By.PARTIAL_LINK_TEXT,
+    }
+
     def __init__(self, process_id: str = None, process_type: str = None, process_machine: str = None) -> None:
         super().__init__(process_id=process_id, process_type=process_type, process_machine=process_machine)
         self.subprocessprograms = SubprocessPrograms()
         self.pathmanager = PathManager()
         self.driver = None
+        self.by_methods = dict(self.BY_METHODS)
 
     def _open_browser(self) -> None:
         """Função privada para iniciar o browser edge.
@@ -157,4 +170,19 @@ class Browser(UiAutomationClass):
                 except Exception as error_x:
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
+        return False
+    
+    def try_click(self, element, repetitions: int = 100000) -> bool:
+        """Função para tentar n vezes clicar em um elemento web.
+        element: elemento web para clicar.
+        repetitions: número de tentativas para clicar no elemento."""
+        for _ in range(repetitions):
+            logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
+            try:
+                element.click()
+                logger.info('Clique realizado com sucesso')
+                return True
+            except Exception as error_x:
+                logger.error(f'Erro ao tentar clicar no elemento: {error_x}')
+            sleep(1)
         return False
