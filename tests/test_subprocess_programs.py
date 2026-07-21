@@ -1,4 +1,4 @@
-from use_cases.SubprocessPrograms import SubprocessPrograms
+from use_cases.old.SubprocessPrograms import SubprocessPrograms
 from time import sleep
 
 if __name__ == '__main__':
