@@ -152,6 +152,12 @@ class UiAutomationClass:
                               Depth=params.get("depth"))
         try:
             if element.Exists(maxSearchSeconds=max_search_seconds, searchIntervalSeconds=search_interval):
+                if element_type == "Window":
+                    element.SetActive()
+                    element.SetFocus()
+                elif screen:
+                    screen.SetActive()
+                    screen.SetFocus()
                 return element
             raise LookupError(f"{element_type} não encontrado: {params}")
         except Exception as error_x:
