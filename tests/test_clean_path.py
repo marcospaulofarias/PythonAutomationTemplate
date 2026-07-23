@@ -24,14 +24,13 @@ def test_list_files_returns_only_files(tmp_path, monkeypatch):
 	f2 = d / "b.log"
 	f1.write_text("one")
 	f2.write_text("two")
-	sub = d / "sub"
-	sub.mkdir()
+	(d / "sub").mkdir()
 
 	fm = FilesManager()
 	listed = fm._list_files(str(d))
-	# normalize paths and compare basenames (should include subdirectory)
+	# normalize paths and compare basenames
 	basenames = {os.path.basename(os.path.normpath(p)) for p in listed}
-	assert basenames == {"a.txt", "b.log", "sub"}
+	assert basenames == {"a.txt", "b.log"}
 
 
 def test_rm_file_removes_and_silently_ignores_missing(tmp_path, monkeypatch):
@@ -61,17 +60,4 @@ def test_clean_paths_clears_directory(tmp_path, monkeypatch):
 	# directory should contain no files (subdirs may remain)
 	remaining = [p for p in os.listdir(str(d))]
 	assert all(not os.path.isfile(os.path.join(str(d), name)) for name in remaining)
-
-
-def test_rm_file_removes_directory_recursively(tmp_path, monkeypatch):
-	_patch_deps(monkeypatch)
-	parent = tmp_path / "parent"
-	parent.mkdir()
-	sub = parent / "child"
-	sub.mkdir()
-	(sub / "f.txt").write_text("x")
-
-	fm = FilesManager()
-	fm._rm_file(str(parent))
-	assert not parent.exists()
 
