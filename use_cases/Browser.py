@@ -3,12 +3,13 @@ from re import sub
 from random import uniform
 from pyautogui import keyDown
 from use_cases.UiAutomationClass import UiAutomationClass
-from use_cases.old.SubprocessPrograms import SubprocessPrograms
+from use_cases.Initializator import Initializator
 from use_cases.PathManager import PathManager
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from loguru import logger
 from utils.serial_killer import kill_program_by_name
+from use_cases.PrintAutomation import PrintAutomation
 import requests
 
 class Browser(UiAutomationClass):
@@ -30,13 +31,14 @@ class Browser(UiAutomationClass):
 
     def __init__(self, process_id: str = None, process_type: str = None, process_machine: str = None) -> None:
         super().__init__(process_id=process_id, process_type=process_type, process_machine=process_machine)
-        self.subprocessprograms = SubprocessPrograms()
+        self.initializator = Initializator(process_id=process_id, process_type=process_type, process_machine=process_machine)
         self.pathmanager = PathManager()
         self.driver = None
         self.by_methods = dict(self.BY_METHODS)
         self.process_id = process_id
         self.process_type = process_type
         self.process_machine = process_machine
+        self.printautomation = PrintAutomation(process_id=self.process_id, process_type=self.process_type, process_machine=self.process_machine)
 
     def _open_browser(self) -> None:
         """Função privada para iniciar o browser edge.
@@ -68,7 +70,6 @@ class Browser(UiAutomationClass):
         raise RuntimeError(
             f'Não foi possível acessar o site {url_site} após {try_repetitions} tentativas'
         ) from last_error
-        return False
 
     def get_site(self, url_site: str = 'https://www.google.com') -> None:
         """Acessa uma página web a partir de uma URL completa.
