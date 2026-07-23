@@ -8,7 +8,8 @@ from use_cases.PathManager import PathManager
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from loguru import logger
-from utils.serial_killer import *
+from utils.serial_killer import kill_program_by_name
+import requests
 
 class Browser(UiAutomationClass):
     """Classe para automação web usando UiAutomation e Selenium.
@@ -34,7 +35,7 @@ class Browser(UiAutomationClass):
         self.driver = None
         self.by_methods = dict(self.BY_METHODS)
         self.process_id = process_id
-        self.process_type =process_type
+        self.process_type = process_type
         self.process_machine = process_machine
 
     def _open_browser(self) -> None:
@@ -51,6 +52,24 @@ class Browser(UiAutomationClass):
             logger.critical(f'Erro ao abrir o navegador\nERROR: {error_x}')
             raise RuntimeError("Erro ao abrir o navegador") from error_x
 
+    def _verify_site_connection(self, url_site: str, try_repetitions: int = 3, time_new_retry: float = 1.0) -> bool:
+        last_error = None
+        for _ in range(try_repetitions):
+            try:
+                response = requests.get(url_site, timeout=10)
+                if response.status_code == 200:
+                    return True
+            except Exception as error_x:
+                last_error = error_x
+                logger.warning(f'Erro ao tentar acessar o site {url_site}: {error_x}')
+            sleep(time_new_retry)
+        self.printautomation.print_error()
+        logger.critical(f'Não foi possível acessar o site {url_site} após {try_repetitions} tentativas')
+        raise RuntimeError(
+            f'Não foi possível acessar o site {url_site} após {try_repetitions} tentativas'
+        ) from last_error
+        return False
+
     def get_site(self, url_site: str = 'https://www.google.com') -> None:
         """Acessa uma página web a partir de uma URL completa.
 
@@ -59,6 +78,10 @@ class Browser(UiAutomationClass):
 
         :param url_site: URL completa para ser acessada.
         """
+        if not self._verify_site_connection(url_site=url_site):
+            self.printautomation.print_error()
+            logger.critical(f'Não foi possível acessar o site {url_site}')
+            raise RuntimeError(f'Não foi possível acessar o site {url_site}')
         self._open_browser()
         if self.driver:
             self.driver.get(url=url_site)
@@ -72,6 +95,7 @@ class Browser(UiAutomationClass):
         if self.driver:
             try:
                 self.driver.quit()
+                self.driver = None
             except Exception as error_x:
                 self.printautomation.print_error()
                 logger.critical(f'Erro ao fechar o navegador\nError: {error_x}')
@@ -79,11 +103,22 @@ class Browser(UiAutomationClass):
         else:
             try:
                 kill_program_by_name(process_name="msedge.exe", process_id=self.process_id, process_type=self.process_type, process_machine=self.process_machine)
+                self.driver = None
             except Exception as error_x:
                 self.printautomation.print_error()
                 logger.critical(f'Erro ao fechar o navegador pelo subprocesso\nError: {error_x}')
 
-    def keyboard(self, element, word: str, key_down: bool, just_numbers: bool, verify: bool = True, clean: bool = True, word_to_remove: str = None) -> None:
+    def keyboard(
+        self,
+        element,
+        word: str,
+        key_down: bool,
+        just_numbers: bool,
+        verify: bool = True,
+        clean: bool = True,
+        word_to_remove: str = None,
+        max_attempts: int = 3,
+    ) -> None:
         """Interage com campos de texto editáveis.
 
         :param element: Elemento web de texto editável.
@@ -93,28 +128,52 @@ class Browser(UiAutomationClass):
         :param verify: Se True, verifica se o valor final está correto.
         :param clean: Se True, limpa o campo antes de enviar o valor.
         :param word_to_remove: Palavra a ser removida de `word` antes da verificação.
+        :param max_attempts: Número máximo de tentativas de preenchimento antes de falhar.
         """
-        if clean and element:
-            element.clear()
-        for caract in word:
-            sleep(uniform(0.5, 1.5))
-            element.send_keys(caract)
-            if key_down is True:
-                keyDown('right')
-                element.click()
-        if verify:
-            if just_numbers:
-                if sub(r"\D", "", element.get_attribute('value')) != word:
-                    self.keyboard(element, word, key_down, verify)
-            elif not just_numbers and word_to_remove is None:
-                if element.get_attribute('value') != word:
-                    self.keyboard(element, word, key_down, verify)
-            elif word_to_remove is not None:
-                if element.get_attribute('value').replace(word_to_remove, "") != word.replace(word_to_remove, ""):
-                    self.keyboard(element, word, key_down, verify)
-            return
+        if element is None:
+            raise ValueError("Elemento obrigatório para keyboard()")
 
-    def element_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=100000, element: any = None, click: bool = False, update: bool = False):
+        attempt = 0
+        while attempt < max_attempts:
+            attempt += 1
+
+            if clean:
+                element.clear()
+
+            for caract in word:
+                sleep(uniform(0.5, 1.5))
+                element.send_keys(caract)
+                if key_down is True:
+                    keyDown('right')
+                    element.click()
+
+            if not verify:
+                return
+
+            current_value = element.get_attribute('value') or ""
+            expected_value = word
+
+            if just_numbers:
+                current_value = sub(r"\D", "", current_value)
+                expected_value = sub(r"\D", "", word)
+            elif word_to_remove is not None:
+                current_value = current_value.replace(word_to_remove, "")
+                expected_value = word.replace(word_to_remove, "")
+
+            if current_value == expected_value:
+                return
+
+            logger.warning(
+                f"keyboard(): tentativa {attempt} falhou, valor atual='{current_value}' vs esperado='{expected_value}'"
+            )
+            sleep(0.5)
+
+        self.printautomation.print_error(element_to_print=element)
+        raise RuntimeError(
+            f"Não foi possível preencher o campo corretamente após {max_attempts} tentativas"
+        )
+
+    def element_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=30, element: any = None, click: bool = False, update: bool = False):
         """Tenta capturar um elemento web repetidamente.
 
         :param method: Método usado para identificar o elemento [By.NAME, By.CLASS_NAME, By.XPATH, etc.].
@@ -125,8 +184,10 @@ class Browser(UiAutomationClass):
         :param element: Elemento pai a partir do qual a captura é feita, se aplicável.
         :param click: Se True, clica no elemento assim que capturado.
         :param update: Se True, atualiza a página a cada 20 tentativas.
-        :returns: O elemento capturado, True se o clique for realizado, ou False caso não seja encontrado.
+        :returns: O elemento capturado ou True se o clique for realizado.
+        :raises RuntimeError: Quando o elemento não é encontrado após as tentativas.
         """
+        last_error = None
         if element is None:
             for _ in range(repetitions):
                 if update and (_ + 1) % 20 == 0:
@@ -138,25 +199,29 @@ class Browser(UiAutomationClass):
                         self.driver.find_element(method, element_id).click()
                         logger.info(message_success)
                         return True
-                    else:
-                        logger.info(message_success)
-                        return self.driver.find_element(method, element_id)
+                    result = self.driver.find_element(method, element_id)
+                    logger.info(message_success)
+                    return result
                 except Exception as error_x:
+                    last_error = error_x
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
         else:
             for _ in range(repetitions):
                 logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    element.find_element(method, element_id)
+                    result = element.find_element(method, element_id)
                     logger.info(message_success)
-                    return element.find_element(method, element_id)
+                    return result
                 except Exception as error_x:
+                    last_error = error_x
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
-        return False
+        logger.critical(f'Não foi possível capturar o elemento após {repetitions} tentativas')
+        self.printautomation.print_error()
+        raise RuntimeError(f'Não foi possível capturar o elemento após {repetitions} tentativas') from last_error
     
-    def elements_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=100000, element: any = None):
+    def elements_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=30, element: any = None):
         """Tenta capturar uma ou mais ocorrências de um elemento web repetidamente.
 
         :param method: Método usado para identificar o(s) elemento(s) [By.NAME, By.CLASS_NAME, By.XPATH, etc.].
@@ -165,31 +230,43 @@ class Browser(UiAutomationClass):
         :param message_error: Mensagem exibida em caso de erro ao capturar o(s) elemento(s).
         :param repetitions: Número de tentativas para capturar o(s) elemento(s).
         :param element: Elemento pai a partir do qual a captura é feita, se aplicável.
-        :returns: Lista de elementos capturados ou False caso não sejam encontrados.
+        :returns: Lista de elementos capturados.
+        :raises RuntimeError: Quando nenhum elemento é encontrado após as tentativas.
         """
+        last_error = None
         if element is None:
             for _ in range(repetitions):
                 logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    self.driver.find_elements(method, element_id)
-                    logger.info(message_success)
-                    return self.driver.find_elements(method, element_id)
+                    result = self.driver.find_elements(method, element_id)
+                    if result:
+                        logger.info(message_success)
+                        return result
+                    last_error = ValueError('Nenhum elemento encontrado')
+                    logger.error(f'{message_error}: Nenhum elemento encontrado')
                 except Exception as error_x:
+                    last_error = error_x
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
         else:
             for _ in range(repetitions):
                 logger.info(f'TENTATIVA {_ + 1} de {repetitions}')
                 try:
-                    element.find_elements(method, element_id)
-                    logger.info(message_success)
-                    return element.find_elements(method, element_id)
+                    result = element.find_elements(method, element_id)
+                    if result:
+                        logger.info(message_success)
+                        return result
+                    last_error = ValueError('Nenhum elemento encontrado')
+                    logger.error(f'{message_error}: Nenhum elemento encontrado')
                 except Exception as error_x:
+                    last_error = error_x
                     logger.error(f'{message_error}: {error_x}')
                 sleep(1)
-        return False
+        logger.critical(f'Não foi possível capturar o(s) elemento(s) após {repetitions} tentativas')
+        self.printautomation.print_error()
+        raise RuntimeError(f'Não foi possível capturar o(s) elemento(s) após {repetitions} tentativas') from last_error
     
-    def try_click(self, element, repetitions: int = 100000) -> bool:
+    def try_click(self, element, repetitions: int = 30) -> bool:
         """Tenta várias vezes clicar em um elemento web.
 
         :param element: Elemento web para clicar.
@@ -205,4 +282,6 @@ class Browser(UiAutomationClass):
             except Exception as error_x:
                 logger.error(f'Erro ao tentar clicar no elemento: {error_x}')
             sleep(1)
-        return False
+        logger.critical(f'Não foi possível clicar no elemento após {repetitions} tentativas')
+        self.printautomation.print_error()
+        raise RuntimeError(f'Não foi possível clicar no elemento após {repetitions} tentativas') from error_x
