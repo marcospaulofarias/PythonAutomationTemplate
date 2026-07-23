@@ -68,6 +68,7 @@ class UiAutomationClass:
         if not name_of_program:
             raise ValueError("É necessário informar o nome do programa a ser executado.")
         if self.initializator is None:
+            logger.critical("Initializator não inicializado. apps_needed_for_process deve ser fornecido para executar apps.")
             raise RuntimeError("Initializator não inicializado. apps_needed_for_process deve ser fornecido para executar apps.")
         return self.initializator.run_program(
             name_of_program=name_of_program,
@@ -120,6 +121,7 @@ class UiAutomationClass:
                 break
             time.sleep(min(interval, remaining))
         self.printautomation.print_error(element_to_print=element)
+        logger.critical(f"Não foi possível interagir com o elemento após {max_interact_seconds}s: {last_error}")
         raise RuntimeError(f"Não foi possível interagir com o elemento após {max_interact_seconds}s: {last_error}") from last_error
 
     def _verify_dict_params(self, dict_params) -> bool:
@@ -162,4 +164,5 @@ class UiAutomationClass:
             raise LookupError(f"{element_type} não encontrado: {params}")
         except Exception as error_x:
             self.printautomation.print_error(element_to_print=screen)
+            logger.critical(f"Erro ao buscar {element_type}: {error_x}")
             raise LookupError(f"Erro ao buscar {element_type}: {error_x}") from error_x
