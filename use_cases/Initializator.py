@@ -1,4 +1,3 @@
-import os
 import subprocess
 import time
 import psutil
@@ -34,11 +33,14 @@ class Initializator:
         """
         self.name_of_program = name_of_program
         self.name_of_process = name_of_process
+        process_name = name_of_process if name_of_process else name_of_program
         if close_existing:
-            process_name = name_of_process if name_of_process else name_of_program
-            if wait_existing:
-                self._wait_for_process(process_name, timeout=wait_existing)
             kill_program_by_name(process_name=process_name, process_id=self.process_id, process_type=self.process_type, process_machine=self.process_machine)
+        try:
+            self._wait_for_process(process_name, timeout=wait_existing)
+        except RuntimeError:
+            # Processo não apareceu dentro do timeout — continuar normalmente
+            logger.debug(f'Processo "{process_name}" não encontrado antes de fechar; prosseguindo')
         try:
             if new_cmd:
                 self.program_in_execute = subprocess.Popen(
@@ -47,6 +49,8 @@ class Initializator:
                 )
             else:
                 self.program_in_execute = subprocess.Popen(name_of_program)
+                if wait_existing:
+                    self._wait_for_process(process_name, timeout=wait_existing)
             return True
         except Exception as error_x:
             logger.critical(f'O programa "{name_of_program}" não pôde ser executado\nError: {error_x}')
