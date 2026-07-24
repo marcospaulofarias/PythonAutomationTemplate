@@ -32,7 +32,7 @@ class Browser(UiAutomationClass):
         "partial_link_text": By.PARTIAL_LINK_TEXT,
     }
 
-    def __init__(self, process_id: str = None, process_type: str = None, process_machine: str = None) -> None:
+    def __init__(self, process_id: str = None, process_type: str = None, process_machine: str = None, headless: bool = False) -> None:
         super().__init__(process_id=process_id, process_type=process_type, process_machine=process_machine)
         self.initializator = Initializator(process_id=process_id, process_type=process_type, process_machine=process_machine)
         self.pathmanager = PathManager()
@@ -42,6 +42,7 @@ class Browser(UiAutomationClass):
         self.process_type = process_type
         self.process_machine = process_machine
         self.printautomation = PrintAutomation(process_id=self.process_id, process_type=self.process_type, process_machine=self.process_machine)
+        self.headless = headless
 
     def _open_browser(self) -> None:
         """Função privada para iniciar o browser edge.
@@ -51,6 +52,13 @@ class Browser(UiAutomationClass):
             options = webdriver.EdgeOptions()
             options.add_argument("--no-sandbox")
             options.add_argument("--start-maximized")
+            if self.headless:
+                # Modo headless
+                options.add_argument("--headless=new")
+
+                # Recomendações
+                options.add_argument("--disable-gpu")
+                options.add_argument("--window-size=1920,1080")
             self.driver = webdriver.Edge(options=options)
         except Exception as error_x:
             self.printautomation.print_error()
