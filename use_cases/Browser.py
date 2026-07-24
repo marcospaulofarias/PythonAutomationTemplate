@@ -8,7 +8,7 @@ from use_cases.PathManager import PathManager
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from loguru import logger
-from utils.serial_killer import kill_program_by_name
+from utils.serial_killer import kill_program_by_name, kill_all
 from use_cases.PrintAutomation import PrintAutomation
 import requests
 
@@ -16,10 +16,13 @@ class Browser(UiAutomationClass):
     """Classe para automação web usando UiAutomation e Selenium.
 
     Esta classe permite superar limitações do Selenium com uiautomation e vice-versa.
+
+    :param process_id: Identificador do processo para logs e rastreamento.
+    :param process_type: Tipo do processo para logs e rastreamento.
+    :param process_machine: Nome da máquina para logs e rastreamento.
     """
     BY_METHODS = {
         "name": By.NAME,
-        "classname": By.CLASS_NAME,
         "class_name": By.CLASS_NAME,
         "xpath": By.XPATH,
         "id": By.ID,
@@ -52,6 +55,7 @@ class Browser(UiAutomationClass):
         except Exception as error_x:
             self.printautomation.print_error()
             logger.critical(f'Erro ao abrir o navegador\nERROR: {error_x}')
+            kill_all()
             raise RuntimeError("Erro ao abrir o navegador") from error_x
 
     def _verify_site_connection(self, url_site: str, try_repetitions: int = 3, time_new_retry: float = 1.0) -> bool:
@@ -67,6 +71,7 @@ class Browser(UiAutomationClass):
             sleep(time_new_retry)
         self.printautomation.print_error()
         logger.critical(f'Não foi possível acessar o site {url_site} após {try_repetitions} tentativas')
+        kill_all()
         raise RuntimeError(
             f'Não foi possível acessar o site {url_site} após {try_repetitions} tentativas'
         ) from last_error
@@ -82,6 +87,7 @@ class Browser(UiAutomationClass):
         if not self._verify_site_connection(url_site=url_site):
             self.printautomation.print_error()
             logger.critical(f'Não foi possível acessar o site {url_site}')
+            kill_all()
             raise RuntimeError(f'Não foi possível acessar o site {url_site}')
         self._open_browser()
         if self.driver:
@@ -100,6 +106,7 @@ class Browser(UiAutomationClass):
             except Exception as error_x:
                 self.printautomation.print_error()
                 logger.critical(f'Erro ao fechar o navegador\nError: {error_x}')
+                kill_all()
                 raise RuntimeError('Erro ao fechar o navegador') from error_x
         else:
             try:
@@ -132,6 +139,7 @@ class Browser(UiAutomationClass):
         :param max_attempts: Número máximo de tentativas de preenchimento antes de falhar.
         """
         if element is None:
+            kill_all()
             raise ValueError("Elemento obrigatório para keyboard()")
 
         attempt = 0
@@ -170,6 +178,7 @@ class Browser(UiAutomationClass):
             sleep(0.5)
 
         self.printautomation.print_error(element_to_print=element)
+        kill_all()
         raise RuntimeError(
             f"Não foi possível preencher o campo corretamente após {max_attempts} tentativas"
         )
@@ -220,6 +229,7 @@ class Browser(UiAutomationClass):
                 sleep(1)
         logger.critical(f'Não foi possível capturar o elemento após {repetitions} tentativas')
         self.printautomation.print_error()
+        kill_all()
         raise RuntimeError(f'Não foi possível capturar o elemento após {repetitions} tentativas') from last_error
     
     def elements_response(self, method: By, element_id: str, message_success: str, message_error: str, repetitions: int=30, element: any = None):
@@ -265,6 +275,7 @@ class Browser(UiAutomationClass):
                 sleep(1)
         logger.critical(f'Não foi possível capturar o(s) elemento(s) após {repetitions} tentativas')
         self.printautomation.print_error()
+        kill_all()
         raise RuntimeError(f'Não foi possível capturar o(s) elemento(s) após {repetitions} tentativas') from last_error
     
     def try_click(self, element, repetitions: int = 30) -> bool:
@@ -285,4 +296,5 @@ class Browser(UiAutomationClass):
             sleep(1)
         logger.critical(f'Não foi possível clicar no elemento após {repetitions} tentativas')
         self.printautomation.print_error()
+        kill_all()
         raise RuntimeError(f'Não foi possível clicar no elemento após {repetitions} tentativas') from error_x

@@ -3,6 +3,8 @@ from loguru import logger
 import uiautomation as auto
 from use_cases.PrintAutomation import PrintAutomation
 from use_cases.Initializator import Initializator
+from utils.serial_killer import kill_all
+from utils.config import load_apps_config
 
 class UiAutomationClass:
     """Classe para automação de interface gráfica RPA usando uiautomation.
@@ -20,11 +22,19 @@ class UiAutomationClass:
             apps_needed_for_process = []
 
         self.initializator = None
-        self.apps = {
-            "libreofficecalc": lambda: self._run_app(name_of_program="C:\\Program Files\\LibreOffice\\program\\scalc.exe", name_of_process="soffice.bin", close_existing=True, wait_existing=5),
-            "calculadora": lambda: self._run_app(name_of_program="calc.exe", name_of_process="CalculatorApp.exe", close_existing=True, wait_existing=5),
-            "cmd": lambda: self._run_app(name_of_program="cmd.exe", close_existing=True, wait_existing=5, new_cmd=True),
-        }
+        # Carregar apps a partir de config/apps.json e permitir overrides por .env
+        apps_config = load_apps_config()
+        self.apps = {}
+        for key, cfg in apps_config.items():
+            def make_runner(c):
+                return lambda c=c: self._run_app(
+                    name_of_program=c.get("name_of_program"),
+                    name_of_process=c.get("name_of_process"),
+                    close_existing=c.get("close_existing", False),
+                    wait_existing=c.get("wait_existing", 0),
+                    new_cmd=c.get("new_cmd", False)
+                )
+            self.apps[key] = make_runner(cfg)
 
         if apps_needed_for_process:
             self.initializator = Initializator(process_id=process_id, process_type=process_type, process_machine=process_machine)
@@ -38,6 +48,7 @@ class UiAutomationClass:
             if error_apps:
                 logger.error(f"Os seguintes aplicativos não foram encontrados na lista de apps disponíveis: {', '.join(error_apps)}")
                 self.printautomation.print_error()
+                kill_all()
                 raise ValueError(f"Aplicativos não encontrados: {', '.join(error_apps)}")
                                                
         self.controls = {
@@ -66,9 +77,11 @@ class UiAutomationClass:
         :returns: True se o programa foi iniciado com sucesso, False caso contrário.
         """
         if not name_of_program:
+            kill_all()
             raise ValueError("É necessário informar o nome do programa a ser executado.")
         if self.initializator is None:
             logger.critical("Initializator não inicializado. apps_needed_for_process deve ser fornecido para executar apps.")
+            kill_all()
             raise RuntimeError("Initializator não inicializado. apps_needed_for_process deve ser fornecido para executar apps.")
         return self.initializator.run_program(
             name_of_program=name_of_program,
@@ -88,6 +101,7 @@ class UiAutomationClass:
         :returns: O controle encontrado.
         """
         if not self._verify_dict_params(dict_params=params):
+            kill_all()
             raise ValueError("É necessário passar no mínimo parâmetro")
         return self._try_element(element_type=element_type, params=params, screen=screen)
 
@@ -104,6 +118,7 @@ class UiAutomationClass:
         """
         method_element = self.interactions.get(element.ControlTypeName)
         if not method_element:
+            kill_all()
             raise ValueError(f"Nenhuma interação definida para o tipo: {element.ControlTypeName}")
 
         deadline = time.monotonic() + max_interact_seconds
@@ -122,6 +137,7 @@ class UiAutomationClass:
             time.sleep(min(interval, remaining))
         self.printautomation.print_error(element_to_print=element)
         logger.critical(f"Não foi possível interagir com o elemento após {max_interact_seconds}s: {last_error}")
+        kill_all()
         raise RuntimeError(f"Não foi possível interagir com o elemento após {max_interact_seconds}s: {last_error}") from last_error
 
     def _verify_dict_params(self, dict_params) -> bool:
@@ -145,6 +161,7 @@ class UiAutomationClass:
         :returns: O controle encontrado.
         """
         if not element_type or element_type not in self.controls:
+            kill_all()
             raise ValueError("Obrigatório informar o tipo do elemento")
         control_cls = self.controls.get(element_type)
         element = control_cls(searchFromControl=screen,
@@ -161,8 +178,10 @@ class UiAutomationClass:
                     screen.SetActive()
                     screen.SetFocus()
                 return element
+            kill_all()
             raise LookupError(f"{element_type} não encontrado: {params}")
         except Exception as error_x:
             self.printautomation.print_error(element_to_print=screen)
             logger.critical(f"Erro ao buscar {element_type}: {error_x}")
+            kill_all()
             raise LookupError(f"Erro ao buscar {element_type}: {error_x}") from error_x
