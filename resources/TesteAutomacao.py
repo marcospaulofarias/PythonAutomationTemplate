@@ -12,6 +12,8 @@ class TesteAutomacao:
         print(f"Valor do dólar: {dolar_value}")
         value_multiplication = self.calculadora.multiply_dolar_value(multiply_valor="3,50", dolar_value=dolar_value)
         print(f"Resultado da multiplicação: {value_multiplication}")
+        value_multiplication = self.calculadora.multiply_dolar_value(multiply_valor="7", dolar_value=dolar_value)
+        print(f"Resultado da multiplicação: {value_multiplication}")
 
 if __name__ == "__main__":
     teste_automacao = TesteAutomacao()
