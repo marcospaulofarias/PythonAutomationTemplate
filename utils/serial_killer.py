@@ -55,30 +55,35 @@ def kill_all(app_keys: list = None, apps_config: dict = None, process_id: str = 
     # Após finalizar os processos listados, também finalizar quaisquer processos
     # Python em execução (exceto o processo atual) para garantir que a automação
     # não continue em caso de falha.
-    try:
-        current_pid = os.getpid()
-        python_names = {"python.exe", "pythonw.exe", "python"}
-        for proc in psutil.process_iter(['pid', 'name']):
-            try:
-                name = (proc.info.get('name') or '').lower()
-                if proc.info.get('pid') == current_pid:
-                    continue
-                # Verifica nomes conhecidos de processos Python
-                if any(pn in name for pn in python_names):
-                    logger.info(f'Terminando processo Python: pid={proc.pid} name={proc.info.get("name")}')
-                    proc.terminate()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-        # Aguarda encerramento e força kill se necessário
-        _, alive = psutil.wait_procs([p for p in psutil.process_iter(['pid', 'name']) if p.info.get('pid') != current_pid and (p.info.get('name') or '').lower() in python_names], timeout=5)
-        if alive:
-            for p in alive:
+    # Controla se processos Python devem ser finalizados via variável de ambiente.
+    kill_py_flag = os.getenv("KILL_PY_ON_ERROR", "false").lower() in ("1", "true", "yes")
+    if not kill_py_flag:
+        logger.info('KILL_PY_ON_ERROR is not enabled; skipping Python process termination')
+    else:
+        try:
+            current_pid = os.getpid()
+            python_names = {"python.exe", "pythonw.exe", "python"}
+            for proc in psutil.process_iter(['pid', 'name']):
                 try:
-                    p.kill()
+                    name = (proc.info.get('name') or '').lower()
+                    if proc.info.get('pid') == current_pid:
+                        continue
+                    # Verifica nomes conhecidos de processos Python
+                    if any(pn in name for pn in python_names):
+                        logger.info(f'Terminando processo Python: pid={proc.pid} name={proc.info.get("name")}')
+                        proc.terminate()
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
-            psutil.wait_procs(alive, timeout=5)
-    except Exception as error_x:
-        logger.warning(f'Erro ao tentar finalizar processos Python: {error_x}')
+            # Aguarda encerramento e força kill se necessário
+            _, alive = psutil.wait_procs([p for p in psutil.process_iter(['pid', 'name']) if p.info.get('pid') != current_pid and (p.info.get('name') or '').lower() in python_names], timeout=5)
+            if alive:
+                for p in alive:
+                    try:
+                        p.kill()
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                psutil.wait_procs(alive, timeout=5)
+        except Exception as error_x:
+            logger.warning(f'Erro ao tentar finalizar processos Python: {error_x}')
 
     return any_killed
